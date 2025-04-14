@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 // Edge struct
-const Edge = struct {
+pub const Edge = struct {
     from: []const u8,
     to: []const u8,
 };
@@ -33,7 +33,7 @@ pub const BFSTree = struct {
 };
 
 // Path struct
-const Path = struct {
+pub const Path = struct {
     edges: std.ArrayList(Edge),
 
     pub fn init(allocator: Allocator) Path {
@@ -57,7 +57,7 @@ const Path = struct {
 };
 
 // BFS Path Finding
-fn findPath(tree: *BFSTree, start: []const u8, end: []const u8, allocator: Allocator) !?Path {
+pub fn findPath(tree: *BFSTree, start: []const u8, end: []const u8, allocator: Allocator) !?Path {
     var paths = std.ArrayList(Path).init(allocator);
     defer paths.deinit();
 
