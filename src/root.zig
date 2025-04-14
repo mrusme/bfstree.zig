@@ -8,7 +8,7 @@ const Edge = struct {
 };
 
 // BFSTree struct
-const BFSTree = struct {
+pub const BFSTree = struct {
     edges: std.ArrayList(Edge),
 
     pub fn init(allocator: Allocator) BFSTree {
