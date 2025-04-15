@@ -17,6 +17,10 @@ pub const BFSTree = struct {
         };
     }
 
+    pub fn deinit(self: *BFSTree) void {
+        self.edges.deinit();
+    }
+
     pub fn addEdge(self: *BFSTree, edge: Edge) !void {
         try self.edges.append(edge);
     }
@@ -42,6 +46,10 @@ pub const Path = struct {
         };
     }
 
+    pub fn deinit(self: *Path) void {
+        self.edges.deinit();
+    }
+
     pub fn addEdge(self: *Path, edge: Edge) !void {
         try self.edges.append(edge);
     }
@@ -59,7 +67,12 @@ pub const Path = struct {
 // BFS Path Finding
 pub fn findPath(tree: *BFSTree, start: []const u8, end: []const u8, allocator: Allocator) !?Path {
     var paths = std.ArrayList(Path).init(allocator);
-    defer paths.deinit();
+    defer {
+        for (paths.items) |item| {
+            @constCast(&item).deinit();
+        }
+        paths.deinit();
+    }
 
     var initial_edges = try tree.fromNode(start, allocator);
     defer initial_edges.deinit();
@@ -98,6 +111,9 @@ pub fn findPath(tree: *BFSTree, start: []const u8, end: []const u8, allocator: A
             }
         }
 
+        for (paths.items) |item| {
+            @constCast(&item).deinit();
+        }
         paths.deinit();
         paths = new_paths;
     }
@@ -106,10 +122,16 @@ pub fn findPath(tree: *BFSTree, start: []const u8, end: []const u8, allocator: A
 
 test "BFS Path Finding" {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        _ = gpa.deinit();
+        // if (deinit_status == .leak) {
+        //     @panic("LEAK");
+        // }
+    }
     const allocator = gpa.allocator();
 
     var tree = BFSTree.init(allocator);
-    defer tree.edges.deinit();
+    defer tree.deinit();
 
     try tree.addEdge(Edge{ .from = "New York", .to = "Chicago" });
     try tree.addEdge(Edge{ .from = "New York", .to = "Los Angeles" });
@@ -118,6 +140,7 @@ test "BFS Path Finding" {
 
     const result = try findPath(&tree, "New York", "Tokyo", allocator);
     if (result) |path| {
+        defer @constCast(&path).deinit();
         // std.log.debug("Path found: ", .{});
         for (path.edges.items, 0..) |edge, i| {
             // std.log.debug("[{s} -> {s}] ", .{ edge.from, edge.to });
