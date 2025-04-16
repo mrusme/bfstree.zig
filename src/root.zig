@@ -39,13 +39,13 @@ pub const BFSTree = struct {
     pub fn findPath(self: *BFSTree, start: []const u8, end: []const u8) !?Path {
         var paths = std.ArrayList(Path).init(self.allocator);
         defer {
-            for (paths.items) |item| {
-                @constCast(&item).deinit();
+            for (paths.items) |*path| {
+                path.deinit();
             }
             paths.deinit();
         }
 
-        var initial_edges = try self.fromNode(start);
+        const initial_edges = try self.fromNode(start);
         defer initial_edges.deinit();
 
         for (initial_edges.items) |edge| {
@@ -53,13 +53,22 @@ pub const BFSTree = struct {
             try path.addEdge(edge);
             try paths.append(path);
             if (std.mem.eql(u8, edge.to, end)) {
-                return path;
+                var result = Path.init(self.allocator);
+                for (path.edges.items) |path_edge| {
+                    try result.addEdge(path_edge);
+                }
+                return result;
             }
         }
 
         while (paths.items.len > 0) {
             var new_paths = std.ArrayList(Path).init(self.allocator);
-            defer new_paths.deinit();
+            defer {
+                for (new_paths.items) |*path| {
+                    path.deinit();
+                }
+                new_paths.deinit();
+            }
 
             for (paths.items) |*path| {
                 const last_edge = path.edges.items[path.edges.items.len - 1];
@@ -76,17 +85,25 @@ pub const BFSTree = struct {
                     try new_path.addEdge(child);
 
                     if (std.mem.eql(u8, child.to, end)) {
-                        return new_path;
+                        var result = Path.init(self.allocator);
+                        for (new_path.edges.items) |path_edge| {
+                            try result.addEdge(path_edge);
+                        }
+                        new_path.deinit();
+                        return result;
                     }
                     try new_paths.append(new_path);
                 }
             }
 
-            for (paths.items) |item| {
-                @constCast(&item).deinit();
+            for (paths.items) |*path| {
+                path.deinit();
             }
-            paths.deinit();
-            paths = new_paths;
+            paths.clearRetainingCapacity();
+
+            while (new_paths.pop()) |path| {
+                try paths.append(path);
+            }
         }
         return null;
     }
@@ -134,26 +151,29 @@ test "BFS Path Finding" {
     defer tree.deinit();
 
     try tree.addEdge(Edge{ .from = "New York", .to = "Chicago" });
+    try tree.addEdge(Edge{ .from = "Chicago", .to = "Dallas" });
     try tree.addEdge(Edge{ .from = "New York", .to = "Los Angeles" });
     try tree.addEdge(Edge{ .from = "Los Angeles", .to = "Houston" });
-    try tree.addEdge(Edge{ .from = "Chicago", .to = "Tokyo" });
+    try tree.addEdge(Edge{ .from = "Chicago", .to = "Miami" });
+    try tree.addEdge(Edge{ .from = "Houston", .to = "Tokyo" });
 
     const result = try tree.findPath("New York", "Tokyo");
     if (result) |path| {
         defer @constCast(&path).deinit();
-        // std.log.debug("Path found: ", .{});
+        try std.testing.expectEqual(3, path.edges.items.len);
         for (path.edges.items, 0..) |edge, i| {
-            // std.log.debug("[{s} -> {s}] ", .{ edge.from, edge.to });
             if (i == 0) {
                 try std.testing.expectEqualStrings("New York", edge.from);
+                try std.testing.expectEqualStrings("Los Angeles", edge.to);
             } else if (i == 1) {
-                try std.testing.expectEqualStrings("Chicago", edge.from);
+                try std.testing.expectEqualStrings("Los Angeles", edge.from);
+                try std.testing.expectEqualStrings("Houston", edge.to);
+            } else if (i == 2) {
+                try std.testing.expectEqualStrings("Houston", edge.from);
+                try std.testing.expectEqualStrings("Tokyo", edge.to);
             }
         }
-        // std.log.debug("\n", .{});
-        try std.testing.expect(path.edges.items.len == 2);
     } else {
-        // std.log.err("No path found.\n", .{});
         try std.testing.expect(false);
     }
 }
