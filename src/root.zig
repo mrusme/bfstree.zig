@@ -14,44 +14,44 @@ pub const BFSTree = struct {
     pub fn init(allocator: std.mem.Allocator) BFSTree {
         return BFSTree{
             .allocator = allocator,
-            .edges = std.ArrayList(Edge).init(allocator),
+            .edges = .{},
         };
     }
 
     pub fn deinit(self: *BFSTree) void {
-        self.edges.deinit();
+        self.edges.deinit(self.allocator);
     }
 
     pub fn addEdge(self: *BFSTree, edge: Edge) !void {
-        try self.edges.append(edge);
+        try self.edges.append(self.allocator, edge);
     }
 
     pub fn fromNode(self: *BFSTree, start: []const u8) !std.ArrayList(Edge) {
-        var result = std.ArrayList(Edge).init(self.allocator);
+        var result: std.ArrayList(Edge) = .{};
         for (self.edges.items) |e| {
             if (std.mem.eql(u8, e.from, start)) {
-                try result.append(e);
+                try result.append(self.allocator, e);
             }
         }
         return result;
     }
 
     pub fn findPath(self: *BFSTree, start: []const u8, end: []const u8) !?Path {
-        var paths = std.ArrayList(Path).init(self.allocator);
+        var paths: std.ArrayList(Path) = .{};
         defer {
             for (paths.items) |*path| {
                 path.deinit();
             }
-            paths.deinit();
+            paths.deinit(self.allocator);
         }
 
-        const initial_edges = try self.fromNode(start);
-        defer initial_edges.deinit();
+        var initial_edges = try self.fromNode(start);
+        defer initial_edges.deinit(self.allocator);
 
         for (initial_edges.items) |edge| {
             var path = Path.init(self.allocator);
             try path.addEdge(edge);
-            try paths.append(path);
+            try paths.append(self.allocator, path);
             if (std.mem.eql(u8, edge.to, end)) {
                 var result = Path.init(self.allocator);
                 for (path.edges.items) |path_edge| {
@@ -62,18 +62,18 @@ pub const BFSTree = struct {
         }
 
         while (paths.items.len > 0) {
-            var new_paths = std.ArrayList(Path).init(self.allocator);
+            var new_paths: std.ArrayList(Path) = .{};
             defer {
                 for (new_paths.items) |*path| {
                     path.deinit();
                 }
-                new_paths.deinit();
+                new_paths.deinit(self.allocator);
             }
 
             for (paths.items) |*path| {
                 const last_edge = path.edges.items[path.edges.items.len - 1];
                 var children = try self.fromNode(last_edge.to);
-                defer children.deinit();
+                defer children.deinit(self.allocator);
 
                 for (children.items) |child| {
                     if (path.isCircular(child)) continue;
@@ -92,7 +92,7 @@ pub const BFSTree = struct {
                         new_path.deinit();
                         return result;
                     }
-                    try new_paths.append(new_path);
+                    try new_paths.append(self.allocator, new_path);
                 }
             }
 
@@ -102,7 +102,7 @@ pub const BFSTree = struct {
             paths.clearRetainingCapacity();
 
             while (new_paths.pop()) |path| {
-                try paths.append(path);
+                try paths.append(self.allocator, path);
             }
         }
         return null;
@@ -111,20 +111,21 @@ pub const BFSTree = struct {
 
 // Path struct
 pub const Path = struct {
-    edges: std.ArrayList(Edge),
+    allocator: std.mem.Allocator,
+    edges: std.ArrayList(Edge) = .{},
 
     pub fn init(allocator: std.mem.Allocator) Path {
         return Path{
-            .edges = std.ArrayList(Edge).init(allocator),
+            .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Path) void {
-        self.edges.deinit();
+        self.edges.deinit(self.allocator);
     }
 
     pub fn addEdge(self: *Path, edge: Edge) !void {
-        try self.edges.append(edge);
+        try self.edges.append(self.allocator, edge);
     }
 
     pub fn isCircular(self: *Path, edge: Edge) bool {

@@ -2,7 +2,7 @@
     .name = .bfstree_zig,
     .version = "0.0.1",
     .fingerprint = 0x810ffbe98f0466ef,
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.0",
     .dependencies = .{
     },
     .paths = .{
